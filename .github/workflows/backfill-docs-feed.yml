@@ -1,0 +1,115 @@
+name: Backfill Last 10 Days of Docs Changes
+
+on:
+  schedule:
+    # Run daily at 3 AM UTC to ensure feed is always populated
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  backfill-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout monitoring repo
+      uses: actions/checkout@v4
+      
+    - name: Fetch and process last 10 days of commits
+      run: |
+        echo "🔄 Backfilling last 10 days of docs commits..."
+        
+        # Calculate date 10 days ago in ISO 8601 format
+        SINCE_DATE=$(date -u -d '10 days ago' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v-10d +"%Y-%m-%dT%H:%M:%SZ")
+        echo "📅 Fetching commits since: $SINCE_DATE"
+        
+        # Fetch commits from the last 10 days (GitHub API returns max 100 per page)
+        COMMITS_URL="https://api.github.com/repos/getsentry/sentry-docs/commits?sha=master&since=$SINCE_DATE&per_page=100"
+        echo "🌐 URL: $COMMITS_URL"
+        
+        # Fetch commits and save to temp file for robust parsing
+        curl -s -H "Accept: application/vnd.github.v3+json" "$COMMITS_URL" > /tmp/commits.json
+        
+        # Get list of commit SHAs (more robust than parsing full commit objects)
+        COMMIT_SHAS=$(jq -r 'if type == "array" then .[].sha else empty end' /tmp/commits.json)
+        TOTAL_COMMITS=$(echo "$COMMIT_SHAS" | grep -c . || echo "0")
+        echo "📊 Found $TOTAL_COMMITS total commits in the last 10 days"
+        
+        # Process each commit
+        PROCESSED=0
+        SENT=0
+        
+        echo "$COMMIT_SHAS" | while read -r COMMIT_SHA; do
+          if [ -z "$COMMIT_SHA" ]; then
+            continue
+          fi
+          
+          PROCESSED=$((PROCESSED + 1))
+          
+          echo ""
+          echo "[$PROCESSED/$TOTAL_COMMITS] Processing: $COMMIT_SHA"
+          
+          # Get detailed commit info to check files (save to temp file for robust parsing)
+          curl -s -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/getsentry/sentry-docs/commits/$COMMIT_SHA" \
+            > /tmp/commit_${COMMIT_SHA}.json
+          
+          COMMIT_MSG=$(jq -r '.commit.message // "No message"' /tmp/commit_${COMMIT_SHA}.json 2>/dev/null | head -n 1)
+          echo "  Message: $COMMIT_MSG"
+          
+          # Check if it has documentation files (.md, .mdx, or in docs directories)
+          DOC_FILES=$(jq -r '.files[]? | select(.filename | test("\\.(md|mdx)$|/docs/|/documentation/")) | .filename' /tmp/commit_${COMMIT_SHA}.json 2>/dev/null | wc -l | tr -d ' ')
+          
+          if [ "$DOC_FILES" -gt 0 ]; then
+            echo "  📚 Found $DOC_FILES documentation files changed"
+            SENT=$((SENT + 1))
+            
+            # Create a GitHub-compatible push payload from the commit details file
+            jq -c '{
+              ref: "refs/heads/master",
+              commits: [.],
+              repository: {
+                name: "sentry-docs",
+                full_name: "getsentry/sentry-docs",
+                html_url: "https://github.com/getsentry/sentry-docs"
+              }
+            }' /tmp/commit_${COMMIT_SHA}.json > /tmp/webhook_payload_${COMMIT_SHA}.json
+            
+            # Calculate signature (hex format, not base64)
+            SIGNATURE="sha256=$(openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" /tmp/webhook_payload_${COMMIT_SHA}.json | awk '{print $2}')"
+            
+            # Trigger webhook
+            HTTP_CODE=$(curl -X POST "${{ secrets.WEBHOOK_URL }}" \
+              -H "Content-Type: application/json" \
+              -H "X-GitHub-Event: push" \
+              -H "X-Hub-Signature-256: $SIGNATURE" \
+              -d "@/tmp/webhook_payload_${COMMIT_SHA}.json" \
+              -w "%{http_code}" \
+              -o /tmp/response_${COMMIT_SHA}.txt \
+              -s)
+            
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
+              echo "  ✅ Webhook sent successfully (HTTP $HTTP_CODE)"
+            else
+              echo "  ⚠️  Webhook returned HTTP $HTTP_CODE"
+              cat /tmp/response_${COMMIT_SHA}.txt
+            fi
+            
+            # Clean up temp files
+            rm -f /tmp/commit_${COMMIT_SHA}.json /tmp/webhook_payload_${COMMIT_SHA}.json /tmp/response_${COMMIT_SHA}.txt
+            
+            # Rate limiting: sleep briefly between requests
+            sleep 0.5
+          else
+            echo "  ⏭️  No documentation files changed, skipping"
+            # Clean up commit details file
+            rm -f /tmp/commit_${COMMIT_SHA}.json
+          fi
+        done
+        
+        echo ""
+        echo "✅ Backfill complete!"
+        echo "📊 Processed $TOTAL_COMMITS commits, sent $SENT webhooks for docs changes"
+        
+        # Clean up main commits file
+        rm -f /tmp/commits.json
+
