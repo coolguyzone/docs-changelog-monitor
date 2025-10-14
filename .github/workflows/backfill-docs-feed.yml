@@ -64,7 +64,7 @@ jobs:
             SENT=$((SENT + 1))
             
             # Create a GitHub-compatible push payload from the commit details file
-            jq -c '{
+            WEBHOOK_PAYLOAD=$(jq -c '{
               ref: "refs/heads/master",
               commits: [.],
               repository: {
@@ -72,10 +72,13 @@ jobs:
                 full_name: "getsentry/sentry-docs",
                 html_url: "https://github.com/getsentry/sentry-docs"
               }
-            }' /tmp/commit_${COMMIT_SHA}.json > /tmp/webhook_payload_${COMMIT_SHA}.json
+            }' /tmp/commit_${COMMIT_SHA}.json)
             
-            # Calculate signature (hex format, not base64)
-            SIGNATURE="sha256=$(openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" /tmp/webhook_payload_${COMMIT_SHA}.json | awk '{print $2}')"
+            # Save payload to file for consistent signature calculation (use echo -n to avoid trailing newline)
+            echo -n "$WEBHOOK_PAYLOAD" > /tmp/webhook_payload_${COMMIT_SHA}.json
+            
+            # Calculate signature (hex format, not base64) - must match original workflow method
+            SIGNATURE="sha256=$(cat /tmp/webhook_payload_${COMMIT_SHA}.json | openssl dgst -sha256 -hmac "${{ secrets.WEBHOOK_SECRET }}" | awk '{print $2}')"
             
             # Trigger webhook
             HTTP_CODE=$(curl -X POST "${{ secrets.WEBHOOK_URL }}" \
