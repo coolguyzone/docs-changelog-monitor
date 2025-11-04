@@ -38,7 +38,7 @@ jobs:
         PROCESSED=0
         SENT=0
         
-        echo "$COMMIT_SHAS" | while read -r COMMIT_SHA; do
+        while read -r COMMIT_SHA; do
           if [ -z "$COMMIT_SHA" ]; then
             continue
           fi
@@ -107,7 +107,7 @@ jobs:
             # Clean up commit details file
             rm -f /tmp/commit_${COMMIT_SHA}.json
           fi
-        done
+        done <<< "$COMMIT_SHAS"
         
         echo ""
         echo "✅ Backfill complete!"

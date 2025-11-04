@@ -1,0 +1,196 @@
+---
+title: Getting Started with Metrics
+sidebar_order: 10
+description: "Learn how to set up and send your first metrics to Sentry."
+---
+
+This guide will walk you through setting up metrics in your application and sending your first metric events to Sentry.
+
+<Note>
+
+Metrics is currently in **Beta** for Python and JavaScript. To get access, either:
+- Comment with your org slug on our [launch announcement](https://github.com/getsentry/sentry/discussions/102275)
+- Email us at [feedback-metrics@sentry.io](mailto:feedback-metrics@sentry.io)
+
+</Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- A Sentry account with access to the Metrics beta
+- An active Sentry project
+- Your project's DSN (Data Source Name)
+
+## SDK Setup
+
+Select your platform to get started:
+
+<PlatformContent includePath="metrics/setup" />
+
+<PlatformSection supported={["python"]}>
+
+### Python Setup
+
+#### 1. Install or Upgrade the SDK
+
+Make sure you're on version `2.43.0` or higher:
+
+```bash
+pip install --upgrade sentry-sdk
+```
+
+#### 2. Enable Metrics in Your Configuration
+
+```python
+import sentry_sdk
+from sentry_sdk import metrics
+
+sentry_sdk.init(
+    dsn="___PUBLIC_DSN___",
+    _experiments={
+        "enable_metrics": True,
+    },
+)
+```
+
+#### 3. Send Your First Metric
+
+```python
+# Counter - Track how many times something happens
+metrics.count("checkout.failed", 1, attributes={
+    "route": "/checkout",
+    "tenant": "acme"
+})
+
+# Gauge - Measure a current value
+metrics.gauge("queue.depth", 42, attributes={
+    "queue": "emails"
+})
+
+# Distribution - Record numeric values for analysis
+metrics.distribution("cart.amount_usd", 187.5, attributes={
+    "currency": "USD",
+    "tenant": "acme"
+})
+```
+
+For more details, see the [Python discussion](https://github.com/getsentry/sentry-python/discussions/5042).
+
+</PlatformSection>
+
+<PlatformSection supported={["javascript", "node"]}>
+
+### JavaScript Setup
+
+#### 1. Install or Upgrade the SDK
+
+Make sure you're on version `10.20.0` or higher:
+
+```bash
+npm install --save @sentry/browser@latest
+# or for Node.js
+npm install --save @sentry/node@latest
+```
+
+#### 2. Enable Metrics in Your Configuration
+
+```javascript
+import * as Sentry from '@sentry/browser'; // or '@sentry/node'
+
+Sentry.init({
+  dsn: '<your-dsn>',
+  _experiments: { 
+    enableMetrics: true 
+  },
+});
+```
+
+#### 3. Send Your First Metric
+
+```javascript
+// Counter - Track how many times something happens
+Sentry.metrics.count('checkout.failed', 1, {
+  attributes: {
+    route: '/checkout',
+    tenant: 'acme',
+    provider: 'stripe',
+  },
+});
+
+// Gauge - Measure a current value
+Sentry.metrics.gauge('queue.depth', 42, {
+  unit: 'items',
+  attributes: {
+    queue: 'emails',
+    region: 'us-east-1',
+  },
+});
+
+// Distribution - Record numeric values for analysis
+Sentry.metrics.distribution('cart.amount_usd', 187.5, {
+  unit: 'usd',
+  attributes: {
+    currency: 'USD',
+    tenant: 'acme',
+  },
+});
+```
+
+For more details, see the [JavaScript discussion](https://github.com/getsentry/sentry-javascript/discussions/18055).
+
+</PlatformSection>
+
+## Understanding Metric Events
+
+Each metric event you send includes:
+
+- **name** - Your metric identifier (e.g., `checkout.failed`)
+- **kind** - The metric type: `counter`, `gauge`, or `distribution`
+- **value** - The numeric value being recorded
+- **attributes** - Key-value pairs for filtering and grouping
+- **trace_id** and **span_id** - Automatically captured to link with traces
+- **unit** (optional) - The measurement unit (e.g., `usd`, `milliseconds`, `bytes`)
+- **byte_size** (optional) - For tracking data sizes
+
+## Verifying Your Setup
+
+After sending your first metrics:
+
+1. Navigate to **Metrics** in your Sentry project sidebar
+2. You should see your metric names appear in the metrics explorer
+3. Click on a metric to view:
+   - **Aggregates Tab** - Charts showing trends over time
+   - **Samples Tab** - Individual metric events with trace links
+
+<Note>
+
+Metrics may take a few seconds to appear in the Sentry UI after being sent from your application.
+
+</Note>
+
+## Next Steps
+
+- Learn about [Metric Types](/product/explore/metrics/metric-types/) and when to use each
+- Explore the [Metrics UI](/product/explore/metrics/metrics-explorer/) to visualize your data
+- Review [Best Practices](/product/explore/metrics/best-practices/) for instrumenting your application
+- Set up [Metric Alerts](/product/alerts/create-alerts/metric-alert-config/) to get notified of issues
+
+## Troubleshooting
+
+### Metrics Not Appearing
+
+If your metrics aren't showing up in Sentry:
+
+1. **Verify SDK version** - Ensure you're on the minimum required version
+2. **Check the experimental flag** - Make sure `enable_metrics: true` is set in `_experiments`
+3. **Verify DSN** - Confirm your DSN is correct and the project has metrics enabled
+4. **Check network** - Look for any network errors in your logs
+5. **Wait a moment** - Metrics can take a few seconds to process
+
+### Need Help?
+
+- Join the discussion on [GitHub](https://github.com/getsentry/sentry/discussions/102275)
+- Email the team at [feedback-metrics@sentry.io](mailto:feedback-metrics@sentry.io)
+- Check [Sentry Status](https://status.sentry.io/) for any ongoing issues
+

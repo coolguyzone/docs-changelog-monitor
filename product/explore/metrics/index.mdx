@@ -1,0 +1,85 @@
+---
+title: Metrics
+sidebar_order: 30
+description: "Send custom metrics from your application to track business-critical signals and debug performance issues with full context."
+---
+
+Metrics in Sentry let you send counters, gauges, and distributions from your code to track application health signals like `email.sent`, `checkout.failed`, or `queue.depth`. Unlike traditional metrics tools that only show _that_ something changed, Sentry's trace-connected metrics show you _why_.
+
+<Note>
+
+Metrics is currently in **Beta** for Python and JavaScript. [Contact us](mailto:feedback-metrics@sentry.io) or comment with your org slug on our [launch announcement](https://github.com/getsentry/sentry/discussions/102275) to get access.
+
+</Note>
+
+## Key Features
+
+### Trace-Connected Debugging
+
+Every metric event carries a `trace_id`, allowing you to:
+- Click into a metric sample and see the **exact trace** that produced it
+- Open the related **spans, logs, and errors**
+- Understand _why_ the metric moved—slow database query, failed API call, bad deploy, etc.
+
+Instead of "metric alert → guesswork," debugging becomes a **single flow**: Metric spike → open a sample → trace waterfall → root cause.
+
+### Three Metric Types
+
+- **Counters** - Track how many times something happened (e.g., `checkout.failed`, `email.sent`)
+- **Gauges** - Measure current values at a point in time (e.g., `queue.depth`, `active_connections`)
+- **Distributions** - Capture numeric values to analyze percentiles, averages, and totals (e.g., `cart.amount_usd`, `response_time_ms`)
+
+### Powerful Exploration UI
+
+- **Aggregates Tab** - View trends and totals across any attributes (e.g., `sum(metrics_value)` grouped by `email_type`)
+- **Samples Tab** - See individual metric events with direct links to their trace, allowing you to drill into spikes or dips and find related errors, traces, or logs
+
+## When to Use Metrics
+
+Metrics are best for **application and code-based health signals**—numeric indicators of whether your _application logic_ is behaving as expected.
+
+### Good Use Cases
+
+You should reach for metrics when you want to **quantify what your code is doing**:
+
+- `email.sent` / `email.failed`
+- `job.processed` / `job.retried`
+- `checkout.started` / `checkout.failed`
+- `payment.declined` / `refund.issued`
+- `queue.depth` / `pool.in_use`
+- `search.zero_results`
+
+### What Not to Track
+
+Metrics are not a replacement for infrastructure monitoring. For system-level signals like CPU, memory, or network I/O, use traditional infrastructure tools.
+
+## Getting Started
+
+To start sending metrics:
+
+1. **Upgrade your SDK** to the minimum required version:
+   - Python: `2.43.0` or higher
+   - JavaScript: `10.20.0` or higher
+
+2. **Enable metrics** in your SDK initialization with the experimental flag
+
+3. **Instrument your code** with the three metric types
+
+See [Getting Started with Metrics](/product/explore/metrics/getting-started/) for detailed setup instructions.
+
+## How It Works
+
+When you send a metric, Sentry captures:
+- **name** - The metric identifier (e.g., `checkout.failed`)
+- **kind** - Counter, gauge, or distribution
+- **value** - The numeric value
+- **attributes** - Key-value pairs for grouping and filtering (e.g., `{route: "/checkout", tenant: "acme"}`)
+- **trace_id** and **span_id** - Links to connect with traces, logs, and errors
+- **unit** (optional) - The measurement unit (e.g., `usd`, `items`, `milliseconds`)
+
+This enriched context means you can pivot from a metric spike directly into the relevant traces and errors without manual correlation.
+
+## Next Steps
+
+<PageGrid />
+
