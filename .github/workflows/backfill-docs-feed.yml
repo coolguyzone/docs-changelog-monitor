@@ -66,11 +66,22 @@ jobs:
             # Create a GitHub-compatible push payload from the commit details file
             WEBHOOK_PAYLOAD=$(jq -c '{
               ref: "refs/heads/master",
+              before: (.parents[0].sha // "0000000000000000000000000000000000000000"),
+              after: .sha,
+              head_commit: .,
               commits: [.],
               repository: {
                 name: "sentry-docs",
                 full_name: "getsentry/sentry-docs",
                 html_url: "https://github.com/getsentry/sentry-docs"
+              },
+              pusher: {
+                name: "github-actions[bot]",
+                email: "github-actions[bot]@users.noreply.github.com"
+              },
+              sender: {
+                login: "github-actions[bot]",
+                type: "Bot"
               }
             }' /tmp/commit_${COMMIT_SHA}.json)
             
