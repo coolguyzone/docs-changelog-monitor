@@ -71,9 +71,12 @@ jobs:
               head_commit: .,
               commits: [.],
               repository: {
+                id: 33837371,
                 name: "sentry-docs",
                 full_name: "getsentry/sentry-docs",
-                html_url: "https://github.com/getsentry/sentry-docs"
+                html_url: "https://github.com/getsentry/sentry-docs",
+                default_branch: "master",
+                private: false
               },
               pusher: {
                 name: "github-actions[bot]",
@@ -81,6 +84,7 @@ jobs:
               },
               sender: {
                 login: "github-actions[bot]",
+                id: 41898282,
                 type: "Bot"
               }
             }' /tmp/commit_${COMMIT_SHA}.json)
@@ -103,6 +107,11 @@ jobs:
             
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ]; then
               echo "  ✅ Webhook sent successfully (HTTP $HTTP_CODE)"
+              # Log response body for debugging (first 200 chars)
+              RESPONSE_BODY=$(cat /tmp/response_${COMMIT_SHA}.txt 2>/dev/null || echo "")
+              if [ -n "$RESPONSE_BODY" ]; then
+                echo "  📝 Response: ${RESPONSE_BODY:0:200}"
+              fi
             else
               echo "  ⚠️  Webhook returned HTTP $HTTP_CODE"
               cat /tmp/response_${COMMIT_SHA}.txt
